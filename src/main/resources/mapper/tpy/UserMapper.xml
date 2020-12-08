@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.tpy.cf.dao.tpyMapper.UserMapper" >
+
+    <select id="getAllUser" resultType="com.tpy.cf.entity.UserVO">
+        select id,name,age from user_info
+    </select>
+
+    <insert id="add" parameterType="com.tpy.cf.entity.User" keyProperty="id" useGeneratedKeys="true">
+        insert into user_info(name,age,password)
+        values(#{name},#{age},#{password})
+    </insert>
+
+    <delete id="delete" parameterType="java.lang.Integer">
+        delete from user_info where id = #{id}
+    </delete>
+
+    <update id="update" parameterType="com.tpy.cf.entity.User">
+        update User
+        set name = #{name}
+          , age = #{age}
+          , password = #{password}
+        where id = #{id}
+    </update>
+
+    <select id="get" parameterType="java.lang.Integer" resultType="com.tpy.cf.entity.UserVO">
+        select id,name,age
+        from user_info
+        where id = #{id}
+    </select>
+
+    <select id="login" parameterType="java.lang.String" resultType="com.tpy.cf.entity.UserVO">
+        select id,name,age,password
+        from user_info
+        where name = #{name}
+    </select>
+</mapper>

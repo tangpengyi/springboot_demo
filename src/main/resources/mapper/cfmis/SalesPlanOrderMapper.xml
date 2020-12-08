@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.tpy.cf.dao.cfmisMapper.SalesPlanOrderMapper" >
+
+    <select id="get" parameterType="java.lang.Integer" resultType="java.util.Map">
+        select h.[id]
+        , h.[order_no]
+        , h.[order_type]
+        , h.[sales_id]
+        , u.[user_name] as [sales_name]
+        , h.[sales_group_id]
+        , d.[department_name] as [sales_group_name]
+        , h.[order_date]
+        , h.[accept_date]
+        , h.[accept_user] as [acceptor_name]
+        , h.[priority]
+        , h.[status]
+        , h.[approver_id]
+        , s.[user_name] as [approver_name]
+        , h.[approve_time]
+        , h.[remark]
+        , h.[flag]
+        , h.[create_time]
+
+	    , convert(nvarchar(30),h.[create_time]) as [create_time]
+	    , h.[create_user]
+	    , h.[modify_time]
+	    , h.[modify_user]
+	  from [dbo].[sd_sales_plan_order_header] h with(nolock)
+	  left join [cfmis].[dbo].[sys_user] u with(nolock) on h.[sales_id] = u.[id] and u.[status] = 1 and u.[del_flag] = 0
+	  left join [cfmis].[dbo].[sys_department] d with(nolock) on d.[id] = h.[sales_group_id] and d.[status] = 1 and d.[del_flag] = 0
+ 	  left join [cfmis].[dbo].[sys_user] s with(nolock) on h.[approver_id] = s.[id] and s.[status] = 1 and s.[del_flag] = 0
+	  where h.[id] = #{id}
+    </select>
+
+    <update id="delete" parameterType="java.util.Map">
+        update h
+	      set h.[is_deleted] = 1
+		  , h.[modify_time] = getdate()
+		  , h.[modify_user] = #{modify_user}
+	    from  [cfmis_test].[dbo].[sd_sales_plan_order_header] h
+	  where h.[is_deleted] = 0
+		  and h.[id] = #{id}
+    </update>
+
+    <select id="getFlag" parameterType="java.lang.Integer" resultType="java.lang.String">
+        select h.[flag]
+        from [cfmis_test].[dbo].[sd_sales_plan_order_header] h with(nolock)
+        where h.[id] = #{id}
+    </select>
+
+
+    <select id="modify" parameterType="java.util.Map" resultType="java.util.Map">
+        declare @new_flag uniqueidentifier = newid()
+        update h
+	      set h.[sales_id] = #{sales_id}
+		    , h.[order_type] = #{order_type}
+		    , h.[sales_group_id] = #{sales_group_id}
+		    , h.[priority] = #{priority}
+		    , h.[approver_id] = #{approver_id}
+		    , h.[remark] = #{remark}
+		    , h.[accept_user] = #{accept_user}
+		    , h.[flag] = @new_flag
+
+		    , h.modify_time = getdate()
+		    , h.modify_user = #{modity_user}
+	    from [cfmis_test].[dbo].[sd_sales_plan_order_header] h
+	    where h.[id] = #{id}
+		  and h.[is_deleted] = 0
+
+		select h.[id]
+        , h.[order_no]
+        , h.[order_type]
+        , h.[sales_id]
+        , u.[user_name] as [sales_name]
+        , h.[sales_group_id]
+        , d.[department_name] as [sales_group_name]
+        , convert(nvarchar(30),h.[order_date]) as [order_date]
+        , convert(nvarchar(30),h.[accept_date]) as [accept_time]
+        , h.[accept_user] as [acceptor_name]
+        , h.[priority]
+        , h.[status]
+        , h.[approver_id]
+        , s.[user_name] as [approver_name]
+        , convert(nvarchar(30),h.[approve_time]) as [approve_time]
+        , h.[remark]
+        , h.[flag]
+        , convert(nvarchar(30),h.[create_time]) as [order_time]
+
+        , convert(nvarchar(30),h.[create_time]) as [create_time]
+        , h.[create_user]
+        , convert(nvarchar(30),h.[modify_time]) as [modify_time]
+        , h.[modify_user]
+        from [dbo].[sd_sales_plan_order_header] h with(nolock)
+        left join [cfmis].[dbo].[sys_user] u on h.[sales_id] = u.[id] and u.[status] = 1 and u.[del_flag] = 0
+        left join [cfmis].[dbo].[sys_department] d on d.[id] = h.[sales_group_id] and d.[status] = 1 and d.[del_flag] = 0
+        left join [cfmis].[dbo].[sys_user] s on h.[approver_id] = s.[id] and s.[status] = 1 and s.[del_flag] = 0
+
+        where h.[id] = #{id}
+          and h.[is_deleted] = 0
+    </select>
+
+    <select id="add" parameterType="java.util.Map" resultType="java.util.Map">
+      declare @new_id int, @msg nvarchar(500)
+	, @order_no nvarchar(30)
+	, @status nvarchar(30) = '草稿'
+	, @is_deleted bit = 0
+	, @flag uniqueidentifier = newid()
+
+exec [dbo].[generate_order_no] '销售备货计划', @order_no out
+
+insert into [dbo].[sd_sales_plan_order_header] ([order_no], [order_type], [sales_id], [sales_group_id]
+	, [order_date],[accept_user], [priority], [status]
+	, [approver_id], [remark], [is_deleted], [flag]
+
+	, [create_time], [create_user], [modify_time], [modify_user])
+	values(@order_no, #{order_type}, #{sales_id}, #{sales_group_id}
+		, getdate(),#{accept_user}, #{priority}, @status
+		, #{approver_id}, #{remark}, @is_deleted, @flag
+
+		, getdate(), #{modity_user}, getdate(), #{modity_user})
+
+  select @new_id = scope_identity()
+
+  select h.[id]
+	, h.[order_no]
+	, h.[order_type]
+	, h.[sales_id]
+	, u.[user_name] as [sales_name]
+	, h.[sales_group_id]
+	, d.[department_name] as [sales_group_name]
+	, convert(nvarchar(30),h.[order_date]) as [order_date]
+	, convert(nvarchar(30),h.[accept_date]) as [accept_date]
+	, h.[accept_user]
+	, h.[priority]
+	, h.[status]
+	, h.[approver_id]
+	, s.[user_name] as [approver_name]
+	, convert(nvarchar(30),h.[approve_time]) as [approve_time]
+	, h.[remark]
+	, h.[flag]
+
+	, convert(nvarchar(30),h.[create_time]) as [create_time]
+	, h.[create_user]
+	, convert(nvarchar(30),h.[modify_time]) as [modify_time]
+	, h.[modify_user]
+	from [dbo].[sd_sales_plan_order_header] h with(nolock)
+	left join [cfmis].[dbo].[sys_user] u with(nolock) on h.[sales_id] = u.[id] and u.[status] = 1 and u.[del_flag] = 0
+	left join [cfmis].[dbo].[sys_department] d with(nolock) on d.[id] = h.[sales_group_id] and d.[status] = 1 and d.[del_flag] = 0
+ 	left join [cfmis].[dbo].[sys_user] s with(nolock) on h.[approver_id] = s.[id] and s.[status] = 1 and s.[del_flag] = 0
+	where h.[id] = @new_id
+    </select>
+  
+    <select id="list" parameterType="java.util.Map" resultType="java.util.Map">
+      select h.[id]
+        , h.[order_no]
+        , h.[order_type]
+        , h.[sales_id]
+        , u.[user_name] as [sales_name]
+        , h.[sales_group_id]
+        , d.[department_name] as [sales_group_name]
+        , h.[order_date]
+        , isnull(h.[accept_date],'') as [accept_date]
+        , h.[accept_user] as [acceptor_name]
+        , h.[priority]
+        , h.[status]
+        , h.[approver_id]
+        , s.[user_name] as [approver_name]
+        , isnull(h.[approve_time],'') as [approve_time]
+        , h.[remark]
+        , h.[flag]
+        , h.[create_time] as [order_time]
+
+        , h.[create_time]
+        , h.[create_user]
+        , h.[modify_time]
+        , h.[modify_user]
+        from [dbo].[sd_sales_plan_order_header] h with(nolock)
+        left join [cfmis].[dbo].[sys_user] u on h.[sales_id] = u.[id] and u.[status] = 1 and u.[del_flag] = 0
+        left join [cfmis].[dbo].[sys_department] d on d.[id] = h.[sales_group_id] and d.[status] = 1 and d.[del_flag] = 0
+        left join [cfmis].[dbo].[sys_user] s on h.[approver_id] = s.[id] and s.[status] = 1 and s.[del_flag] = 0
+
+        where (h.[order_no] like concat(concat('%',#{order_no}),'%') or isnull(#{order_no},'') = '')
+          and (h.[order_date] >= #{from} or isnull(#{from},'') = '')
+          and (h.[order_date] &lt;= #{to} or isnull(#{to},'') = '')
+          and (u.[user_name] like concat(concat('%',#{salesMan}),'%') or isnull(#{salesMan},'') = '')
+          and (d.[department_name] = #{salesGroup} or isnull(#{salesGroup},'') = '')
+          and h.[is_deleted] = 0
+    </select>
+
+</mapper>

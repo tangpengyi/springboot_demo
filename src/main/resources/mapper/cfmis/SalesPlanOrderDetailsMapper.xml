@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.tpy.cf.dao.cfmisMapper.SalesPlanOrderDetailsMapper" >
+
+	<select id="selectByOrderId" parameterType="java.lang.Integer" resultType="java.util.Map">
+		  select d.[id]
+			, d.[order_id]
+			, d.[material_no]
+			, d.[material_name]
+			, d.[color_no]
+			, d.[color_name]
+			, d.[quantity]
+			, d.[weight]
+			, d.[unit]
+			, d.[customer]
+			, d.[remark]
+			, d.[expect_date]
+			, d.[confirm_date]
+
+			, d.[create_time]
+			, d.[create_user]
+			, d.[modify_time]
+			, d.[modify_user]
+			from [cfmis_test].[dbo].[sd_sales_plan_order_detail] d with(nolock)
+			where d.[order_id] = #{order_id}
+	</select>
+
+	<update id="update" parameterType="java.util.Map">
+		update d
+			set d.[order_id] = #{order_id}
+			, d.[material_no] = #{material_no}
+			, d.[material_name] = #{material_name}
+			, d.[color_no] = #{color_no}
+	    	, d.[color_name] = #{color_name}
+			, d.[quantity] = #{quantity}
+			, d.[weight] = #{weight}
+			, d.[unit] = #{unit}
+			, d.[customer] = #{customer}
+			, d.[remark] = #{remark}
+			, d.[expect_date] = #{expect_date}
+			, d.[confirm_date] = #{confirm_date}
+
+			, d.[modify_time] = getdate()
+			, d.[modify_user] = #{modify_user}
+		from [cfmis_test].[dbo].[sd_sales_plan_order_detail] d with(nolock)
+		where d.[id] = #{id}
+	</update>
+
+	<delete id="delete" parameterType="java.util.Map">
+		delete d
+		from [cfmis_test].[dbo].[sd_sales_plan_order_detail] d
+		left join (select * from [dbo].[Split] (#{list_id},',')) t on d.[id] = t.[Value]
+		where d.[order_id] = #{order_id}
+		and t.Value is null
+	</delete>
+
+	<insert id="addByOne" parameterType="java.util.Map">
+		insert into [cfmis_test].[dbo].[sd_sales_plan_order_detail] ([order_id], [material_no],[material_name], [color_no]
+		, [color_name], [quantity], [weight], [unit]
+		, [customer], [remark], [expect_date], [confirm_date]
+
+		, [create_time], [create_user], [modify_time], [modify_user])
+		values (#{order_id}, #{material_no},#{material_name}, #{color_no}
+			, #{color_name}, #{quantity}, #{weight}, #{unit}
+			, #{customer}, #{remark}, #{expect_date}, #{confirm_date}
+
+			, getdate(), #{modify_user}, getdate(), #{modify_user})
+	</insert>
+
+    <insert id="add" parameterType="java.util.List">
+        insert into [cfmis_test].[dbo].[sd_sales_plan_order_detail] ([order_id], [material_no],[material_name], [color_no]
+	, [color_name], [quantity], [weight], [unit]
+	, [customer], [remark], [expect_date], [confirm_date]
+
+	, [create_time], [create_user], [modify_time], [modify_user])
+	values
+	<foreach collection="list" item="list" separator=",">
+	  (#{list.order_id}, #{list.material_no},#{list.material_name}, #{list.color_no}
+		, #{list.color_name}, #{list.quantity}, #{list.weight}, #{list.unit}
+		, #{list.customer}, #{list.remark}, #{list.expect_date}, #{list.confirm_date}
+
+		, getdate(), #{list.modify_user}, getdate(), #{list.modify_user})
+      </foreach>
+    </insert>
+
+
+</mapper>

@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.tpy.cf.dao.cfmisMapper.ShipmentMapper">
+
+	<update id="addShipmentDetail" parameterType="java.util.Map">
+		declare @uGUID uniqueidentifier = newid()
+		, @order_no nvarchar(20) = ''
+		, @sUnit nvarchar(10) = '公斤'
+		, @sBatchNo nvarchar(20) = ''
+		, @num decimal(15,1)
+		, @nWeight decimal(15,1) -- 发货重量
+		, @nPieces decimal(15,1)
+		, @shipping_warehouse nvarchar(20) = '芳村仓'
+
+
+		-- 计算
+		set @num = CEILING(#{purchase_num}/24.5)*24.5
+
+		-- 判断重量是否在整数倍的-10%~10%范围内
+		if((@num - #{purchase_num})/@num &lt;= 0.1)
+		begin
+		set @nPieces = CEILING(#{purchase_num}/24.5)
+		set @nWeight = @num
+		end
+		else
+		begin
+		set @nPieces = convert(decimal(15,1),#{purchase_num}/24.5)
+		set @nWeight = #{purchase_num}
+		end
+
+		INSERT INTO [HSFabricTrade_TEST].[dbo].[sdShipmentPlanFabricDtl] (uGUID, usdShipmentPlanFabricHdrGUID, upsSubContractDtlGUID, sMaterialName
+		, sOrderNo, ummMaterialGUID, sSampleMaterialNo, sColorNo
+		, sColorName, nWeight, nLengthM, nLengthYD
+		, sUnit, nPrice, nPieces, sIsDeliveried
+		, sUpdateMan, tUpdateTime, nAmount, sBatchNo
+		, sLocation, bIncludeTax, sWidth, sGMWT
+		,sDiffDtl04)
+		VALUES(
+			@uGUID
+			, #{shipmentPlanFabricHdrGUID}
+			, null
+			, #{material_name}
+			, @order_no
+			, #{material_GUID}
+			, #{sample_material_no}
+			, #{color_no}
+			, #{color_name}
+			, @nWeight, 0, 0
+			, @sUnit, 0
+			, @nPieces, N'N'
+			, #{update_man}, getdate(), 0
+			, @sBatchNo
+			, N'', 0
+			, #{width}
+			, #{weight}
+			, @shipping_warehouse
+		)
+	</update>
+
+	<update id="modifyCustomerOrderType" parameterType="java.util.Map">
+		update o set o.[status] = #{status}
+		from [cfmis_test].[dbo].[cm_shein_purchase_order] o
+		where [id] = #{id}
+	</update>
+
+	<select id="addShipmentHeader" parameterType="java.util.Map" resultType="java.lang.String">
+		declare @uGUID uniqueidentifier = newid()
+		, @shipment_plan_no nvarchar(50) = 'L2011250003'
+		, @shipment_date datetime = getdate()
+		, @sales_GUID uniqueidentifier
+		, @currency nvarchar(10) = 'CNY'
+		, @status nvarchar(10) = '新增'
+		, @shipping_warehouse nvarchar(20) = '芳村仓'
+		, @shipment_plan_type nvarchar(20) = '芳村成品'
+		, @company_id int = 1
+		, @exchange_rate decimal(15,2) = 1
+		, @collection_way nvarchar(20) = '先收款后发货'
+		, @payment_mode nvarchar(20) = '直接发货'
+		, @shipment_mode nvarchar(20) = ''
+		, @diff07 nvarchar(20) = ''
+		, @logistics nvarchar(20) = ''
+		, @priority nvarchar(20) = '一般'
+		, @msg nvarchar(500)
+
+SELECT @sales_GUID =  A.uGUID
+FROM [HSFabricTrade_TEST].[dbo].[pbSales] A WITH(NOLOCK)
+WHERE A.bUsable=1 AND A.sSalesName = '黄嘉宝'
+
+INSERT INTO [HSFabricTrade_TEST].[dbo].[sdShipmentPlanFabricHdr] (uGUID, sShipmentPlanNo, upbCustomerGUID, upbSalesGUID
+		,dShipmentDate, sDestination, sLinkmanInfo,sCurrency
+		,sPriority, sStatus, sCreator, tCreateTime
+		,sUpdateMan, tUpdateTime, sdShipmentPlanType, iCompanyID
+		,iBillStatus, sDiff04, sDiff05, nExchangeRate
+		,bPurchaseBack, sStoreNo, sPaymentMode, sShipmentMode
+		,sDiff07, sDiff08, sRemark)
+	VALUES (@uGUID, @shipment_plan_no, #{customer_GUID}, @sales_GUID
+		,@shipment_date, #{destination}, #{link_man_info}, @currency
+		,@priority, @status, #{update_man}, getdate()
+		,#{update_man}, getdate(), @shipment_plan_type, @company_id
+		,0, @shipping_warehouse, @collection_way ,@exchange_rate
+		,0, N'', @payment_mode, @shipment_mode
+		,@diff07, @logistics, #{remark})
+
+	select @uGUID
+	</select>
+
+    <select id="findCustomerOrderInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	select top 10 o.[id]
+	, o.[sales_order]
+	, o.[produce_order_id]
+	, o.[follow_user]
+	, o.[main_factory]
+	, c.[sCustomerFullName] as [cf_customer_name]
+	, c.[uGUID] as [customer_GUID]
+	, o.[order_man] + o.[phone] as [link_man_info]
+	, o.[address] as [destination]
+	, M.[color_no]
+	, A.[sColorName] as [color_name]
+	, M.[material_no] as [sample_material_no]
+	, S.[sMaterialName] as [material_name]
+	, S.[uGUID] as [material_GUID]
+	, o.[supplier_material_color]
+	, o.[supplier_color]
+	, o.[supplier_color_code]
+	, o.[unit]
+	, o.[supplier_material_code]
+	, o.[purchase_num]
+	, o.[price]
+	, o.[purchase_total_price]
+	, o.[width] as [width]
+	, o.[weight] as [weight]
+	, '一般' as [priority]
+	, o.[is_quick_reaction]
+	, o.[create_time]
+	, o.[order_time]
+	, o.[accept_time]
+	, '待处理' as [status]
+	, o.[modify_time]
+	from [cfmis_test].[dbo].[cm_shein_purchase_order] O with(nolock)
+	left join [cfmis_test].[dbo].[cm_sku_mapping] M with(nolock) on 'P3850-'+O.[material_sku] = M.[sku]
+	left join [HSFabricTrade_TEST].[dbo].[vwmmMaterialFabricSample] S WITH(NOLOCK) on M.[material_no] = S.[sMaterialNo]
+	left join [HSFabricTrade_TEST].[dbo].[mmMaterialColor] A WITH(NOLOCK) on A.[sColorNo] = M.[color_no]
+	left join [cfmis_test].[dbo].[cm_shein_factory_mapping] F with(nolock) on F.[main_factory] = O.[main_factory] and F.[is_deleted] = 0 and F.[is_enabled] = 0
+	left join [HSFabricTrade_TEST].[dbo].[pbcustomer] C with(nolock) on F.[cf_customer_code] = C.[sCustomerNo]
+	where (o.[sales_order] like concat(concat('%',#{sales_order_no}),'%') or isnull(#{sales_order_no},'') = '')
+		and (o.[main_factory] like concat(concat('%',#{main_factory}),'%') or isnull(#{main_factory},'') = '')
+        and (o.[accept_time] >= #{from}  or isnull(#{from},'') = '')
+        and (o.[accept_time] &lt;= #{to}  or isnull(#{to},'') = '')
+        and o.[status] = '接收'
+    </select>
+
+	<select id="findShipmentOrderByType" parameterType="java.lang.String" resultType="java.util.Map">
+		SELECT top 10 C.usdShipmentPlanFabricHdrGUID
+		, A.sStatus
+		, A.sShipmentPlanNo
+		, A.sPriority
+		, A.dShipmentDate
+		, B.sCustomerName
+		, F.sSalesName
+		, A.sDestination
+		, A.sLinkmanInfo
+		, A.sDiff04
+		, A.sDiff05
+		, A.sRemark
+		, A.sConfirmMan
+		, A.tConfirmTime
+		, A.sCreator
+		, A.dDiff02
+		, A.tCreateTime
+		, A.tPrintTime
+		, A.sShipmentMode
+		, A.sPaymentMode
+		, A.dDiff01
+		, A.dDiff04
+		, A.dDiff06
+		INTO #PLAN
+		FROM [HSFabricTrade_TEST].[dbo].[sdShipmentPlanFabricHdr] A WITH(NOLOCK)
+		JOIN [HSFabricTrade_TEST].[dbo].[pbCustomer] B WITH(NOLOCK) ON B.uGUID = A.upbCustomerGUID
+		JOIN [HSFabricTrade_TEST].[dbo].[sdShipmentPlanFabricDtl] C WITH(NOLOCK) ON A.uGUID = C.usdShipmentPlanFabricHdrGUID
+		LEFT JOIN [HSFabricTrade_TEST].[dbo].[vwmmMaterialFabricSample] D WITH(NOLOCK) ON C.sSampleMaterialNo = D.sMaterialNo
+		LEFT JOIN [HSFabricTrade_TEST].[dbo].[sdOrderHdr] E WITH(NOLOCK) ON C.sOrderNo = E.sOrderNo
+		LEFT JOIN [HSFabricTrade_TEST].[dbo].[pbSales] F WITH(NOLOCK) ON A.upbSalesGUID = F.uGUID
+		LEFT JOIN [HSFabricTrade_TEST].[dbo].[pbUnit] U WITH(NOLOCK) ON U.sUnit = C.sUnit
+		LEFT JOIN [HSFabricTrade_TEST].[dbo].[pbSalesGroup] SG WITH(NOLOCK) ON SG.uGUID = F.upbSalesGroupGUID
+		WHERE A.tConfirmTime IS NOT NULL AND a.sdShipmentPlanType not in ('板布','成品') and a.sDiff04 != N'英德仓'   and CHARINDEX('卓天',sCustomerName)=0 AND a.sStatus not in ('草稿','新增','取消','待审核') and  (((A.dReleaseDate >= '2020-10-09' AND A.dReleaseDate &lt; '2020-10-10')))
+
+		UPDATE A
+		SET A.dDiff02=NULL
+		FROM #PLAN A
+		join [HSFabricTrade_TEST].[dbo].[mmOutDtl] A1 on A1.sBoardNo=A.sShipmentPlanNo
+
+		UPDATE A
+		SET A.sStatus='已收单'
+		FROM #PLAN a
+		WHERE dDiff01 IS NOT NULL AND a.dDiff04 IS NULL
+		AND sStatus='确认'  AND NOT EXISTS (SELECT TOP 1 1
+		FROM  [HSFabricTrade_TEST].[dbo].[mmOutDtl] B
+		JOIN [HSFabricTrade_TEST].[dbo].[mmOutHdr] C ON C.uGUID = B.ummOutHdrGUID
+		WHERE C.sStoreOutStatus = 'CFM' AND b.sBoardNo=a.sShipmentPlanNo)
+
+		UPDATE A
+		SET A.sStatus='正在配货'
+		FROM #PLAN a
+		WHERE dDiff01 IS NOT NULL AND a.dDiff04 IS NOT NULL
+		AND  NOT EXISTS (SELECT TOP 1 1
+		FROM [HSFabricTrade_TEST].[dbo].[mmOutDtl] B
+		JOIN [HSFabricTrade_TEST].[dbo].[mmOutHdr] C ON C.uGUID = B.ummOutHdrGUID
+		WHERE C.sStoreOutStatus = 'CFM' AND b.sBoardNo=a.sShipmentPlanNo)
+		AND sStatus != '取消'
+
+
+		UPDATE A
+		SET A.sStatus='配货完成'
+		FROM #PLAN a
+		WHERE  a.dDiff06 IS NOT NULL
+		AND NOT EXISTS (SELECT TOP 1 1
+		FROM [HSFabricTrade_TEST].[dbo].[mmOutDtl] B
+		JOIN [HSFabricTrade_TEST].[dbo].[mmOutHdr] C ON C.uGUID = B.ummOutHdrGUID
+		WHERE C.sStoreOutStatus = 'CFM' AND b.sBoardNo=a.sShipmentPlanNo)
+		AND sStatus != '取消'
+
+		UPDATE A
+		SET A.sStatus='完成'
+		FROM #PLAN a
+		WHERE a.dDiff02 IS NOT NULL
+		AND sStatus != '取消'
+
+
+		UPDATE #PLAN
+		SET dDiff02 = C.tConfirmTime,sStatus = N'完成'
+		FROM #PLAN A
+		JOIN [HSFabricTrade_TEST].[dbo].[mmOutDtl] B ON B.sBoardNo = A.sShipmentPlanNo
+		JOIN [HSFabricTrade_TEST].[dbo].[mmOutHdr] C ON C.uGUID = B.ummOutHdrGUID
+		WHERE C.sStoreOutStatus = 'CFM' AND sStatus != '取消'
+
+
+		SELECT p.[usdShipmentPlanFabricHdrGUID]
+		, p.[sCustomerName]
+		, p.[sSalesName]
+		, p.[sLinkmanInfo]
+		, p.[dShipmentDate]
+		, p.[sShipmentMode]
+		, p.[sDestination]
+		, p.[sPriority]
+		, p.[sDiff04] as [shipping_warehouse]
+		, p.[sDiff05] as [collection_way]
+		, p.[sPaymentMode]
+		, p.[sRemark]
+		, p.[sStatus]
+		, p.[sShipmentPlanNo]
+		, p.[sConfirmMan]
+		, p.[tConfirmTime]
+		, p.[sCreator]
+		, p.[tCreateTime]
+		, p.[tPrintTime]
+		, p.[dDiff04] AS [distribution_time]
+		FROM #PLAN p
+		where  p.[sStatus] = #{type}
+		drop table #PLAN
+	</select>
+
+	<select id="findDetailByHeaderGUID" parameterType="java.lang.String" resultType="java.util.Map">
+			select d.[uGUID]
+	, d.[sDiffDtl04] as [shipping_warehouse]
+	, d.[sSampleMaterialNo]
+	, d.[sMaterialName]
+	, d.[sColorNo]
+	, d.[sColorName]
+	, d.[nPieces]
+	, d.[nWeight]
+	, d.[sUnit]
+	, d.[sLocation]
+	, d.[sWidth]
+	, d.[sGMWT] as [weight]
+	, d.[nPrice]
+	, d.[nFreeQty]
+	, d.[sBatchNo]
+
+	, d.[sUpdateMan]
+	, d.[tUpdateTime]
+from [HSFabricTrade_TEST].[dbo].[sdShipmentPlanFabricDtl] d with(nolock)
+where d.[usdShipmentPlanFabricHdrGUID] = CONVERT(NVARCHAR(50),#{header_guid})
+</select>
+
+	<update id="updateCustomerOrderType" parameterType="java.util.Map">
+		update o set o.[status] = #{status}
+		from [cfmis_test].[dbo].[cm_shein_purchase_order] o
+		where [id] = #{id}
+	</update>
+
+
+
+</mapper>

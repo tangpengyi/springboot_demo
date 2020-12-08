@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.tpy.cf.dao.cfmisMapper.OrderMapper" >
+
+    <select id="getFromByOrderNo" parameterType="java.lang.String" resultType="com.tpy.cf.entity.FormHeader">
+        select h.[id]
+	        , h.[type]
+	        , h.[name]
+	        , h.[order_no]
+	        , h.[status]
+	        , h.[remark]
+
+	        , h.[create_user]
+	        , h.[create_time]
+	        , h.[modify_user]
+	        , h.[modify_time]
+	    from [cfmis].[dbo].[pb_form_header] h with(nolock)
+	    where (h.[order_no] like concat(concat('%',#{order_no}),'%') or isnull(#{order_no},'') = '')
+		    and h.[del_flag] = 0
+    </select>
+
+
+	<insert id="addFromHead" parameterType="com.tpy.cf.entity.FormHeader" useGeneratedKeys="true" keyProperty="id">
+		insert into [cfmis].[dbo].[pb_form_header] ([type], [name], [order_no], [status]
+			, [remark], [del_flag]
+
+			, [create_user], [create_time], [modify_user], [modify_time])
+		  values (#{type}, #{name}, #{order_no}, #{status}
+			, #{remark}, 0
+
+			, #{modify_user}, getdate(), #{modify_user}, getdate())
+	</insert>
+
+
+	<insert id="addFromDetails" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+		insert into [cfmis].[dbo].[pb_form_detail] ([header_id], [item_id],	[item_value], [remark],
+			[create_user], [create_time], [modify_user], [modify_time])
+		values
+		<foreach collection="list" item="list" separator=",">
+			(#{list.header_id}, #{list.item_id}, #{list.item_value}, #{list.remark}
+			, #{list.modify_user}, getdate(), #{list.modify_user}, getdate())
+		</foreach>
+
+	</insert>
+
+	<select id="getFormItemByType" parameterType="java.lang.String" resultType="com.tpy.cf.entity.FormItem">
+		select i.[id]
+			, i.[type]
+			, i.[item_name]
+			, i.[description]
+			, i.[sort_order]
+			, i.[is_enable]
+			, i.[is_visible]
+			, i.[is_required]
+			, i.[value_type]
+			, i.[default_value]
+
+			, i.[create_user]
+			, i.[create_time]
+			, i.[modify_user]
+			, i.[modify_time]
+			from [cfmis].[dbo].[pb_form_item] i with(nolock)
+			where i.[type] = #{type}
+	</select>
+
+	<select id="getFormName" resultType="java.lang.String">
+		select convert(varchar(20),getdate(),113)
+	</select>
+
+	<select id="getDetailById" parameterType="java.lang.Integer" resultType="java.util.HashMap">
+		select h.[order_no],i.[item_name],d.[item_value]
+		from [cfmis].[dbo].[pb_form_header] h with(nolock)
+		left join [cfmis].[dbo].[pb_form_detail] d with(nolock) on h.[id] = d.[header_id]
+		left join [cfmis].[dbo].[pb_form_item] i with(nolock) on i.[id] = d.[item_id]
+		where h.[id] = #{id} and h.[del_flag] = 0
+	</select>
+
+
+</mapper>

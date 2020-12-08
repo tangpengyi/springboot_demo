@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.tpy.cf.dao.cfmisMapper.DDMapper">
+
+	<select id="detail" parameterType="java.lang.String" resultType="java.util.Map">
+
+		select [o].[id]
+		, [u].[name]
+		, [o].[department_name]
+		, [o].[content]
+		, [o].[machine_no]
+		, case when [o].[accept_time] is null then '未接单'
+		when [o].[finish_time] is null and [o].[result] = 'agree' then '已接单' end as [status]
+		, datediff(S,case when [o].[accept_time] is null then [o].[order_create_time] else [o].[accept_time] end,getdate())/60 as [stay_time]
+		, [o].[image_url]
+		, [o].[factory]
+		from [cfmis_test].[dbo].[dt_device_maintenance_order] o with(nolock)
+		left join [cfmis_test].[dbo].[dt_user] u on [o].[create_user_sid] = [u].[user_sid]
+		where [o].[order_create_time] >= #{current_month_start}
+		and [o].[finish_time] is null
+		and [o].[result] != 'refuse'
+	</select>
+
+
+    <select id="summary" parameterType="java.lang.String" resultType="java.util.Map">
+		declare @from date = '2020-12-1'
+		, @current_month_start date
+		, @current_month_end date
+		, @month_num int
+		, @day_num int
+
+
+		set @current_month_start = convert(char(7),@from,120)+'-01'
+		set @current_month_end = dateadd(day,-1,convert(date,convert(char(7),dateadd(month,1,@from),120)+'-01'))
+
+
+		select [o].[result]
+		, [o].[start_time]
+		, [o].[accept_time]
+		, [o].[handle_time]
+		, [o].[order_create_time]
+		, [o].[finish_time]
+		, [o].[appraise_time]
+		, [o].[create_time]
+		, case when [o].[efficiency_score] &lt; 3 or [o].[attitude_score] &lt; 3 or [o].[service_quality_score] &lt; 3 then 1 else 0 end as [is_complaint]
+		into #month_result
+		from [cfmis_test].[dbo].[dt_device_maintenance_order] o with(nolock)
+		where [o].[order_create_time] between dateadd(day,-10,@current_month_start) and @current_month_end
+
+		select [o].[result]
+		, [o].[start_time]
+		, [o].[accept_time]
+		, [o].[handle_time]
+		, [o].[finish_time]
+		, [o].[appraise_time]
+		, [o].[create_time]
+		, [o].[order_create_time]
+		, [o].[is_complaint]
+		into #day_result
+		from #month_result o with(nolock)
+		where [o].[order_create_time] between @from and dateadd(day,1,@from)
+
+
+
+		;with result as (
+		select count(1) as num
+		, '未接单' as [type]
+		, 'M' as [range]
+		from #month_result o with(nolock)
+		where [o].[accept_time] is null
+
+		union all
+
+		select count(1) as num
+		, '已接单' as [type]
+		, 'M' as [range]
+		from #month_result o with(nolock)
+		where [o].[accept_time] is not null
+		and [o].[finish_time] is null
+
+		union all
+
+		select count(1) as num
+		, '已完成' as [type]
+		, 'M' as [range]
+		from #month_result o with(nolock)
+		where [o].[finish_time] is not null
+
+		union all
+
+		select count(1) as num
+		, '待评估' as [type]
+		, 'M' as [range]
+		from #month_result o with(nolock)
+		where [o].[finish_time] is not null
+		and [o].[appraise_time] is null
+
+		union all
+
+		select count(1) as num
+		, '未接单' as [type]
+		, 'D' as [range]
+		from #day_result o with(nolock)
+		where [o].[accept_time] is null
+
+		union all
+
+		select count(1) as num
+		, '已接单' as [type]
+		, 'D' as [range]
+		from #day_result o with(nolock)
+		where [o].[accept_time] is not null
+		and [o].[finish_time] is null
+
+		union all
+
+		select count(1) as num
+		, '已完成' as [type]
+		, 'D' as [range]
+		from #day_result o with(nolock)
+		where [o].[finish_time] is not null
+
+		union all
+
+		select count(1) as num
+		, '待评估' as [type]
+		, 'D' as [range]
+		from #day_result o with(nolock)
+		where [o].[finish_time] is not null
+		and [o].[appraise_time] is null
+		)
+
+		select r.num,r.range,r.type,t.total,convert(decimal(15,2),(r.num*100.0)/(case when t.total = 0 then 1 else t.total end)) as [proportion]
+		into #result
+		from result r
+		inner join (
+		select sum([num]) as [total],t.[range]
+		from (
+		select [num],[type],[range]
+		from result
+		where [type] != '待评估'
+		) t
+		group by t.[range]
+		) t on r.range = t.[range]
+
+
+		select sum([is_complaint]) as [num]
+		, 'M' as [range]
+		, '投诉率' as [type]
+		, count(1) as [total]
+		, case when count(1) = 0 then 0
+		else convert(decimal(15,2),(sum([is_complaint])*100.0)/count(1)) end as [proportion]
+		from #month_result
+		where [appraise_time] is not null
+		and [order_create_time] >= @current_month_start
+
+		union all
+
+		select sum([is_complaint]) as [num]
+		, 'D' as [range]
+		, '投诉率' as [type]
+		, count(1) as [total]
+		, case when count(1) = 0 then 0
+		else convert(decimal(15,2),(sum([is_complaint])*100.0)/count(1)) end as [proportion]
+		from #day_result
+		where [appraise_time] is not null
+
+		union all
+
+		select * from #result
+		union all
+		select 0 as [num]
+		, 'D' as [range]
+		, '接单率' as [type]
+		, 0 as [total]
+		, sum([proportion]) as [proportion]
+		from #result
+		where [range] = 'D'
+		and [type] in ('已接单','已完成','待评估')
+
+		union all
+
+		select 0 as [num]
+		, 'D' as [range]
+		, '完成率' as [type]
+		, 0 as [total]
+		, sum([proportion]) as [proportion]
+		from #result
+		where [range] = 'D'
+		and [type] in ('已完成','待评估')
+
+		union all
+
+		select 0 as [num]
+		, 'M' as [range]
+		, '接单率' as [type]
+		, 0 as [total]
+		, sum([proportion]) as [proportion]
+		from #result
+		where [range] = 'M'
+		and [type] in ('已接单','已完成','待评估')
+
+		union all
+
+		select 0 as [num]
+		, 'M' as [range]
+		, '完成率' as [type]
+		, 0 as [total]
+		, sum([proportion]) as [proportion]
+		from #result
+		where [range] = 'M'
+		and [type] in ('已完成','待评估')
+
+		drop table #month_result,#day_result,#result
+	</select>
+
+</mapper>
