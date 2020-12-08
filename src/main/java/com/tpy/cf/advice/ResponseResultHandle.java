@@ -24,7 +24,6 @@ public class ResponseResultHandle implements ResponseBodyAdvice<Object> {
     private static final String RESPONSE_RESULT_ANN = "RESPONSE_RESULT_ANN";
 
 
-
     @Override
     public boolean supports(MethodParameter methodParameter, Class<? extends HttpMessageConverter<?>> aClass) {
         return true;

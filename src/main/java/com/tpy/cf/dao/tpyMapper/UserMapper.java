@@ -13,9 +13,15 @@ public interface UserMapper {
 
     public List<UserVO> getAllUser();
 
-    public List<UserVO> login(String name);
+    public UserVO login(String name);
 
     public int add(User user);
 
     public int delete(Integer id);
+
+    public int update(User user);
+
+    public List<String> selectRoleByUserId(Integer userId);
+
+    public List<String> selectPermissionByUserId(Integer userId);
 }

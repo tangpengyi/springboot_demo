@@ -2,8 +2,12 @@ package com.tpy.cf.interceptor;
 
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.tpy.cf.annototion.ResponseResult;
+import com.tpy.cf.config.MyRealm;
+import com.tpy.cf.service.UserService;
 import com.tpy.cf.utils.JwtUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.shiro.SecurityUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.method.HandlerMethod;
@@ -19,28 +23,28 @@ public class ResponseResultInterceptor implements HandlerInterceptor {
 
     private final String RESPONSE_RESULT_ANN = "RESPONSE_RESULT_ANN";
 
+    @Autowired
+    private UserService userService;
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 
         log.info("访问地址==="+request.getRequestURI());
 
+        // swagger 验证
         if (javaJwt(request) == false) {
             throw new Exception("用户未登录");
         }
 
-        // swagger 验证
         log.info(request.getHeader("token"));
 
         if (handler instanceof HandlerMethod) {
             final HandlerMethod handlerMethod = (HandlerMethod) handler;
 
-            // 获取需要访问的类和方法
             Class<?> clazz = handlerMethod.getBeanType();
             Method method = handlerMethod.getMethod();
 
-            // 判断类上面是否加有ResponseResult注解
             if (clazz.isAnnotationPresent(ResponseResult.class)) {
-                // 设置此请求的返回体，需要包装、往下传递，在ResponseBodyAdvice接口进行判断
                 request.setAttribute(RESPONSE_RESULT_ANN, clazz.getAnnotation(ResponseResult.class));
             } else if (method.isAnnotationPresent(ResponseResult.class)) {
                 request.setAttribute(RESPONSE_RESULT_ANN, method.getAnnotation(ResponseResult.class));
@@ -53,14 +57,17 @@ public class ResponseResultInterceptor implements HandlerInterceptor {
     //java-jwt Header 验证
     public boolean javaJwt(HttpServletRequest request) {
         String token = request.getHeader("token");
+        Integer userId = 0;
         if (StringUtils.isEmpty(token))
             return false;
         try {
-            JwtUtils.verity(token);
+            userId = JwtUtils.getUserId(token);
         } catch (Exception e) {
-            log.info(e.getMessage());
             return false;
         }
+
+        MyRealm.setToken(token);
+        userService.login(userId);
         return true;
     }
 }

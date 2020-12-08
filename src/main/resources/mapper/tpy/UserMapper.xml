@@ -2,6 +2,14 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.tpy.cf.dao.tpyMapper.UserMapper" >
 
+    <select id="selectPermissionByUserId" parameterType="java.lang.Integer" resultType="java.lang.String">
+        select p.permissions_value
+        from role_user ru
+        left join role_permission rp on ru.role_id = rp.role_id
+        left join permissions_info p on p.permissions_id = rp.permission_id
+        where ru.user_id = #{user_id}
+    </select>
+
     <select id="getAllUser" resultType="com.tpy.cf.entity.UserVO">
         select id,name,age from user_info
     </select>
@@ -17,9 +25,11 @@
 
     <update id="update" parameterType="com.tpy.cf.entity.User">
         update User
-        set name = #{name}
-          , age = #{age}
-          , password = #{password}
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="password != null and password != ''">password = #{password},</if>
+            age = #{age}
+        </set>
         where id = #{id}
     </update>
 

@@ -2,6 +2,7 @@ package com.tpy.cf.utils;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 
 import java.util.Calendar;
@@ -14,18 +15,17 @@ public class JwtUtils {
      * java-jwt  生成token
      * @return
      */
-    public static String getJavaToken(){
+    public static String getJavaToken(Integer userId){
 
         Calendar instance = Calendar.getInstance();
 
         //设置过期时间
-        instance.add(Calendar.SECOND,200);
+        instance.add(Calendar.SECOND,6000);
 
         return JWT.create()
                 .withIssuer("发送人")
                 .withSubject("subject")
-                .withClaim("userId", "12")
-                .withClaim("userName", "admin")
+                .withClaim("userId", userId)
                 //制定过期时间
                 .withExpiresAt(instance.getTime())
                 //签名
@@ -38,6 +38,14 @@ public class JwtUtils {
      */
     public static DecodedJWT verity(String token){
         return JWT.require(Algorithm.HMAC256(SECERT)).build().verify(token);
+    }
+
+    public static Integer getUserId(String token){
+        return JWT.require(Algorithm.HMAC256(SECERT))
+                .build()
+                .verify(token)
+                .getClaim("userId")
+                .asInt();
     }
 
 }
